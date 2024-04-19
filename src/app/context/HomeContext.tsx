@@ -9,11 +9,17 @@ type HomeContextData = {
     playing: boolean;
     totalTime: number;
     currentTime: number;
+    volume: number;
     videoRef: RefObject<HTMLVideoElement>;
     canvasRef: RefObject<HTMLCanvasElement>;
     playPause: () => void;
+    volumeMute: () => void;
+    changeVolume: (volume: number) => void
     configCurrentTime: (time:number) => void;
     configVideo: (index: number) => void;
+    setVolume: (volume: number) => void;
+    unMute: () => void;
+    playNextVideo: () => void;
     configFilter: (index: number) => void;
 }
 
@@ -31,6 +37,8 @@ const HomeContextProvider = ({children}: ProviderProps) => {
     const [playing, setPlaying] = useState(false);
     const [totalTime, setTotalTime] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
+    const [volume, setVolume] = useState(1);
+    const [muted, setMuted] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -71,9 +79,29 @@ const HomeContextProvider = ({children}: ProviderProps) => {
             video.onended = () => {
                 configVideo(videoIndex + 1);
             }
+
+            video.onvolumechange = () => {
+                setVolume(video.volume);
+            }
+
+            const updateProgressBar = () => {
+                if (video.duration) {
+                    setCurrentTime(video.currentTime);
+                    
+                }
+            };
+            
+            video.addEventListener("timeupdate", updateProgressBar);
+
+            return () => {
+                video.removeEventListener("timeupdate", updateProgressBar);
+            };
+
         }
         draw();
     }, [videoURL, filterIndex]);
+
+
 
     const configCurrentTime = (time: number) => {
         const video = videoRef.current;
@@ -96,12 +124,48 @@ const HomeContextProvider = ({children}: ProviderProps) => {
         setPlaying(!playing);
     }
 
+    const changeVolume = (novoVolume: number) => {
+        const video = videoRef.current;
+        if (!video) return;
+        const clampedVolume = Math.max(0, Math.min(1, novoVolume));
+    }
+
+    const volumeMute = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        setMuted(video.muted);
+
+        if (video.muted) {
+           setVolume(1);
+           video.volume = 1
+        }
+        else {
+            setVolume(0);
+            video.volume = 0
+        }
+    }
+
+    const unMute = () => {
+        const video = videoRef.current;
+        if (!video) return;
+    
+        video.muted = false;
+        setMuted(false);
+    }
+
+    const playNextVideo = () => {
+        configVideo(videoIndex + 1);
+
+    }
+
+
     const draw = () => {
         const video = videoRef.current;
         const canvas = canvasRef.current;
         if (!video || !canvas) return;
         var context = canvas.getContext("2d");
         if (!context) return;
+        
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
@@ -129,10 +193,16 @@ const HomeContextProvider = ({children}: ProviderProps) => {
                 totalTime,
                 currentTime,
                 videoRef,
+                volume,
                 canvasRef,
+                volumeMute,
                 playPause,
                 configCurrentTime,
                 configVideo,
+                changeVolume,
+                setVolume,
+                unMute,
+                playNextVideo,
                 configFilter
             }
         }>
